@@ -54,14 +54,31 @@ func Unzip(src string, dest string) ([]string, []string, error) {
 			return rootFolders, filenames, err
 		}
 
-		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		// open zip file
+		rc, err := f.Open()
 		if err != nil {
 			return rootFolders, filenames, err
 		}
 
-		rc, err := f.Open()
+		// if it is Symbolic Link
+		if f.Mode()&os.ModeSymlink != 0 {
+			var s strings.Builder
+			_, err := io.Copy(&s, rc)
+			rc.Close()
+			if err != nil {
+				return rootFolders, filenames, err
+			}
+			err = os.Symlink(s.String(), fpath)
+			if err != nil {
+				return rootFolders, filenames, err
+			}
+			continue
+		}
+
+		// Normal file
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
 		if err != nil {
-			outFile.Close()
+			rc.Close()
 			return rootFolders, filenames, err
 		}
 
